@@ -1,0 +1,43 @@
+{% extends "base.conf.j2" %}
+
+{% set formatted_features = features.enabled | map('lower') | list %}
+{% set formatted_features = features.disabled | map('lower') | list %}
+
+{% block database_config %}
+[database]
+host = {{ app_config.database.host }}
+port = {{ app_config.database.port }}
+name = {{ app_config.database.name }}
+{% if environment ==  "production" %}
+pool_size = {{ app_config.database.pool_size | default(50) }}
+ssl_mode = require
+ssl_ca = /etc/ssl/certs/ca.pem
+{elif environment == "development" %}
+pool_size = 10
+sll_mode = disable
+debug = true
+{ % endif % }
+{ % endblock % }
+
+{% block cache_config %}
+[cache]
+redis_host = {{ app_config.cache.redis_host }}
+redis_port = {{ app_config.cache.redis_port }}
+{% if app_config.cache.redis_password is defined %}
+redis_password = {{ app_config.cache.redis_password | hash('sha256') }}
+{% endif %}
+{% endblock %}
+
+{% block custom_config %}
+[features]
+{% for feature in features %}
+{{ feature }} = enabled
+{% endfor %}
+{% for feature in disabled_features %}
+{{ feature }} = disabled
+{% endblock %}
+
+# 统计信息
+total_enabled = {{ formatted_features | length }}
+total_disabled = {{ disabled_features | length }}
+{% endblock %}

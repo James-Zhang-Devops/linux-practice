@@ -1,0 +1,130 @@
+- name: 关于错误处理的应用部署
+  hosts: local
+  become: yes
+  vars:
+    interactive_mode: true
+
+  tasks:
+    - name: 第一步：准备环境
+      debug:
+        msg: "开始环境准备..."
+      changed_when: false
+
+    - name: 显示系统消息
+      debug:
+        msg: |
+          === 系统信息 ===
+          主机名: {{ ansible_hostname }}
+          操作系统: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          内存: {{ ansible_memtotal_mb }}MB
+          IP地址: {{ ansible_default_ipv4.address }}
+
+    - name: 检查目录内容
+      command: ls -la /opt/
+      register: ls_result
+      changed_when: false
+    
+    - name: 显示目录内容
+      debug:
+        msg: "目录内容: {{ ls_result.stdout }}"
+      when: ls_result.stdout != ""
+
+    - name: 环境检查确认
+      pause:
+        prompt: "环境信息检查完成，继续系统软件？(y/n)"
+      register: pause1
+      when: interactive_mode | deafult(false)
+
+    - name: 系统资源检查
+      block:
+        - name: 检查磁盘空间
+          command: df -h /
+          register: disk_space
+          changed_when: false
+
+        - name: 验证磁盘空间充足
+          fail: 
+            msg: "磁盘空间不足! 当前可用: {{ disk_space.stdout }}"
+          when: (disk_space.stdout | regex_search('([0-9]+)%') | int) > 90
+          vars:
+            disk_usage: "{{ (disk_space.stdout | regex_search('([0-9]+)%') | list | first | regex_replace('%', '') | int) }}"
+
+        - name: 检查内存是否充足
+          fail:
+            msg: "内存不足！需要2GB，当前: {{ ansible_memfree_mb }}MB"
+          when: ansible_memfree_mb < 2048
+    
+        - name: 检查必需端口是否被占用
+          wait_for:
+            port: "{{ item }}"
+            state: stopped
+            timeout: 1
+          loop: [80, 433, 8080]
+          ignore_errors: yes
+          register: port_check
+    
+        - name: 报告端口占用情况
+          fail: 
+            msg: "端口 {{ item.item }} 已被占用！"
+          loop: "{{ port_check.result }}"
+          when: item is failed
+      rescue:
+        - name: 资源检查失败处理
+          debug:
+            msg: "系统资源检查失败，请解决上述问题后重试"
+      
+    - name: 部署确认
+      pause: 
+        prompt: "系统检查完成，开始部署任务？(y/n)"
+      when: interactive_mode | default(false)
+
+    - name: 模拟可能失败的任务
+      block:
+        - name: 创建一个文件夹
+          copy:
+            content: "测试内容"
+            dest: /tmp/test-file.txt
+            owner: root
+            group: root
+            mode: '0644'
+    
+        - name: 故意失败的任务(文件不存在)
+          command: cat /tmp/non-existent-file.txt
+          register: failed_command
+
+      rescue:
+      - name: 记录错误信息
+        debug:
+          msg: "捕获到错误！命令: {{ ansible_failed_task.name }}, RC: {{ ansible_failed_result.rc }}, 错误: {{ ansible_failed_result.stderr }}"
+      
+      - name: 错误处理确认
+        pause:
+          prompt: "任务失败，是否继续执行清理？(y/n)"
+        when: interactive_mode | default(false)
+          
+      always:
+        - name: 清理临时文件
+          file:
+            path: /tmp/test-file.txt
+            state: absent
+          ignore_errors: yes
+    
+        - name: 显示任务总结
+          debug:
+            msg: "部署流程完成 - 状态: {{ '成功' if not ansible_failed else '部分失败' }}"
+
+    - name: 最终确认
+      pause:
+        prompt: "所有任务执行完成，查看最终报告？(y/n)"
+      when: interactive_mode | default(false)
+
+    - name: 生成执行报告
+      debug:
+        msg: |
+          === 执行报告 ===
+          主机: {{ ansible_hostname }}
+          总任务: {{ ansible_play_stats.changed + ansible_play_stats.ok + ansible_play_stats.failed + ansible_play_stats.skipped }}
+          成功: {{ ansible_play_stats.ok }}
+          变更: {{ ansible_play_stats.changed }}
+          失败: {{ ansible_play_stats.failed }}
+          跳过: {{ ansible_play_stats.skipped }}

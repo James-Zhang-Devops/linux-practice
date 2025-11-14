@@ -1,0 +1,18 @@
+- name: System information collection
+  hosts: local
+  tasks: 
+    - name:  Memory information
+      command: free -h
+      register: memory_info
+    
+    - name: Memory information
+      debug:
+        var: memory_info.stdout
+    
+    - name: Cpu information
+      command: lscpu
+      register: cpu_info
+    
+    - name: Cpu Architecture
+      debug: 
+        msg: "CPU architecture is {{ cpu_info.stdout | regex_search('Architecture') }}"
