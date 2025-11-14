@@ -1,0 +1,49 @@
+- name: my fisrt Playbook
+  hosts: local
+  tasks:
+    - name: welcome information
+      debug: 
+        msg: "hello! this is my first Ansible Playbook and change welcome information"
+
+    - name: current date
+      command: date
+      register: date_result
+
+    - name: date date_result
+      debug: 
+        var: date_result.stdout
+    
+    - name: create test file
+      file: 
+        path: /tmp/ansible-test-file.txt
+        state: touch
+        owner: "{{ ansible_user_id }}"
+        mode: '0644'
+    
+    - name: create more test file
+      file:
+        path: "{{ item }}"
+        state: touch
+        owner: "{{ ansible_user_id }}"
+        mode: '0644'
+      loop:
+        - /tmp/ansible-test1-file.txt
+        - /tmp/ansible-test2-file.txt
+
+    - name: write in file
+      copy: 
+        content: "this file is create by Ansible at {{ ansible_date_time.iso8601 }}\n"
+        dest: /tmp/ansible-test-file.txt
+
+    - name: write in second file
+      copy:
+        content: "this file is second file for learing and created by Ansible at {{ ansible_date_time.iso8601 }}\n and change another line to test"
+        dest: /tmp/ansible-test1-file.txt
+
+    - name: show the file information
+      command: cat /tmp/ansible-test-file.txt /tmp/ansible-test1-file.txt
+      register: file_content
+
+    - name: ptint information
+      debug: 
+        var: file_content.stdout

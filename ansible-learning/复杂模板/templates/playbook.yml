@@ -1,0 +1,38 @@
+- name: 生成复杂配置
+  hosts: local
+  vars:
+    app_name: "myapp"
+    version: "production"
+    version: "2.1.0"
+
+    app_config:
+      database:
+        host: "db.example.com"
+        port: 5432
+        name: "myapp"
+        pool_size: 20
+      cache:
+        redis_host: "redis.example.com"
+        redis_port: 6379
+        redis_password: "secret123"
+      features:
+        enabled:
+          - "authentication"
+          - "logging"
+          - "monitoring"
+        disable:
+          - "debug_mode"
+
+  tasks:
+    - name: 生成配置文件
+      template:
+        src: "templates/app.conf.j2"
+        dest: "/tmp/app-config.yaml"
+    
+    - name: 显示生成的文件内容
+      command: cat /tmp/app-config.conf
+      register: config_content
+      
+    - name: 打印配置内容
+      debug:
+        msg: "生成的配置:\n{{ config_content.stdout }}"

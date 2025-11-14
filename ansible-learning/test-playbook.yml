@@ -1,0 +1,84 @@
+- name: 创建一个Playbook,安装常用的开发工具; 设置目录结构; 创建部署用户
+  hosts: local
+  become: yes
+  vars:
+    app_user: deployer
+    app_directory: /opt/myapp
+    #添加 SSH 公钥变量（实际使用时需要替换为真实的公钥），自己写的时候没做到，ai提醒的
+    deployer_ssh_key: "ssh-rsa AAAAB3NzaC1yc2E... your-email@example.com"
+
+  tasks:
+    - name: 安装系统依赖插件
+      package:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+        - git
+        - vim
+        - curl
+        - jq
+        - htop
+        - tree
+    
+    # - name: 创建应用用户和组
+    #   group:
+    #     name: "{{ app_group }}"
+    #     state: present
+    #     system: yes
+    
+    - name: 创建应用用户
+      user:
+        name: "{{ app_user }}"
+        state: present
+        password: "{{ 'myPassword123' | password_hash('sha512') }}"
+        shell: /bin/bash
+        group: sudo
+        append: yes
+        create_home: yes
+        home: "/home/{{ app_user }}"
+    
+    # ssh需要额外一个步骤
+    - name: 设置部署用户ssh密钥
+      authorized_key:
+        user: "{{ app_user }}"
+        state: present
+        key: "{{ deployer_ssh_key }}"
+
+    - name: 创建应用目录结构
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "{{ app_directory }}", mode: '0755'}
+        - { path: "{{ app_directory }}/bin", mode: '0755'}
+        - { path: "{{ app_directory }}/config", mode: '0755'}
+        - { path: "{{ app_directory }}/logs", mode: '0755'}
+        - { path: "{{ app_directory }}/data", mode: '0750'}
+
+    - name: 验证安装结果
+      block:
+        - name: 检查用户是否创建成功
+          command: id "{{ app_user }}"
+          register: user_check
+          changed_when: false
+        
+        - name: 检查目录是否创建成功
+          stat:
+            path: "{{ item }}"
+          register: dir_check
+          loop:
+            - " {{ app_directory }}"
+            - " {{ app_directory }}/bin"
+            - " {{ app_directory }}/config"
+          changed_when: false
+
+      always:
+        - name: 显示验证结果、
+          debug:
+            msg: |
+              用户 {{ app_user }} 创建: {{ user_check is succeeded }}
+              目录结构创建: {{ dir_check.results | map(attribute='stat.exists') | list }}

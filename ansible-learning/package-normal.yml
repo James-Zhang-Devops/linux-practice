@@ -1,0 +1,16 @@
+# 跨平台的通用包管理器
+- name: install package
+  package: 
+    name: "{{ packages }}"
+    state: present
+  vars: 
+    packages: 
+      - curl
+      - wget
+      - vim
+      - htop
+      - tree
+      - git
+      - python3
+      - python3-pip
+      - unzip

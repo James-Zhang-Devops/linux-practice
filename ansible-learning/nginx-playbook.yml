@@ -1,0 +1,30 @@
+- name: nginx部署练习
+  hosts: local
+  become: yes
+  
+  tasks: 
+    - name: 安装nginx
+      package: 
+        name: nginx
+        state: present
+
+    - name: 自定义nginx欢迎页面
+      copy: 
+        content: "Hello from Ansible Service Management! O(∩_∩)O"
+        dest: /var/www/html/index.html
+
+    - name: 启动并启用nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+    
+    - name: 验证nginx是否响应
+      uri:
+        url: "http://localhost"
+        return_content: yes
+      register: nginx_test
+    
+    - name: 显示测试结果
+      debug: 
+        msg: "Nginx响应: {{ nginx_test.status }} - {{ nginx_test.content }}"

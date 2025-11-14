@@ -1,0 +1,11 @@
+# 基础继承配置模板
+# 生成时间: {{ ansible_date_time.iso8601 }}
+
+[global]
+app_name = {{ app_name }}
+environment = {{ environment }}
+version = {{ version }}
+
+{% block database_config %}{% endblock %}
+{% block cache_config %}{% endblock %}
+{% block custom_config %}{% endlock %}

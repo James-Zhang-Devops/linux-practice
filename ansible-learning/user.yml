@@ -1,0 +1,7 @@
+- name: user
+  user:
+    name: deploy
+    state: present
+    group: sudo
+    append: yes
+    shell: /bin/bash
